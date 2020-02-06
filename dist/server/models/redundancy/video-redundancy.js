@@ -86,6 +86,13 @@ let VideoRedundancyModel = VideoRedundancyModel_1 = class VideoRedundancyModel e
             return VideoRedundancyModel_1.scope(ScopeNames.WITH_VIDEO).findOne(query);
         });
     }
+    static loadByIdWithVideo(id, transaction) {
+        const query = {
+            where: { id },
+            transaction
+        };
+        return VideoRedundancyModel_1.scope(ScopeNames.WITH_VIDEO).findOne(query);
+    }
     static loadByUrl(url, transaction) {
         const query = {
             where: {
@@ -275,7 +282,8 @@ let VideoRedundancyModel = VideoRedundancyModel_1 = class VideoRedundancyModel e
                         [sequelize_1.Op.ne]: actor.id
                     },
                     expiresOn: {
-                        [sequelize_1.Op.lt]: new Date()
+                        [sequelize_1.Op.lt]: new Date(),
+                        [sequelize_1.Op.ne]: null
                     }
                 }
             };
@@ -326,6 +334,91 @@ let VideoRedundancyModel = VideoRedundancyModel_1 = class VideoRedundancyModel e
             return VideoRedundancyModel_1.findAll(query);
         });
     }
+    static listForApi(options) {
+        const { start, count, sort, target, strategy } = options;
+        let redundancyWhere = {};
+        let videosWhere = {};
+        let redundancySqlSuffix = '';
+        if (target === 'my-videos') {
+            Object.assign(videosWhere, { remote: false });
+        }
+        else if (target === 'remote-videos') {
+            Object.assign(videosWhere, { remote: true });
+            Object.assign(redundancyWhere, { strategy: { [sequelize_1.Op.ne]: null } });
+            redundancySqlSuffix = ' AND "videoRedundancy"."strategy" IS NOT NULL';
+        }
+        if (strategy) {
+            Object.assign(redundancyWhere, { strategy: strategy });
+        }
+        const videoFilterWhere = {
+            [sequelize_1.Op.and]: [
+                {
+                    [sequelize_1.Op.or]: [
+                        {
+                            id: {
+                                [sequelize_1.Op.in]: sequelize_1.literal('(' +
+                                    'SELECT "videoId" FROM "videoFile" ' +
+                                    'INNER JOIN "videoRedundancy" ON "videoRedundancy"."videoFileId" = "videoFile".id' +
+                                    redundancySqlSuffix +
+                                    ')')
+                            }
+                        },
+                        {
+                            id: {
+                                [sequelize_1.Op.in]: sequelize_1.literal('(' +
+                                    'select "videoId" FROM "videoStreamingPlaylist" ' +
+                                    'INNER JOIN "videoRedundancy" ON "videoRedundancy"."videoStreamingPlaylistId" = "videoStreamingPlaylist".id' +
+                                    redundancySqlSuffix +
+                                    ')')
+                            }
+                        }
+                    ]
+                },
+                videosWhere
+            ]
+        };
+        const findOptions = {
+            offset: start,
+            limit: count,
+            order: utils_1.getSort(sort),
+            include: [
+                {
+                    required: false,
+                    model: video_file_1.VideoFileModel.unscoped(),
+                    include: [
+                        {
+                            model: VideoRedundancyModel_1.unscoped(),
+                            required: false,
+                            where: redundancyWhere
+                        }
+                    ]
+                },
+                {
+                    required: false,
+                    model: video_streaming_playlist_1.VideoStreamingPlaylistModel.unscoped(),
+                    include: [
+                        {
+                            model: VideoRedundancyModel_1.unscoped(),
+                            required: false,
+                            where: redundancyWhere
+                        },
+                        {
+                            model: video_file_1.VideoFileModel.unscoped(),
+                            required: false
+                        }
+                    ]
+                }
+            ],
+            where: videoFilterWhere
+        };
+        const countOptions = {
+            where: videoFilterWhere
+        };
+        return Promise.all([
+            video_1.VideoModel.findAll(findOptions),
+            video_1.VideoModel.count(countOptions)
+        ]).then(([data, total]) => ({ total, data }));
+    }
     static getStats(strategy) {
         return __awaiter(this, void 0, void 0, function* () {
             const actor = yield utils_2.getServerActor();
@@ -356,6 +449,47 @@ let VideoRedundancyModel = VideoRedundancyModel_1 = class VideoRedundancyModel e
             }));
         });
     }
+    static toFormattedJSONStatic(video) {
+        let filesRedundancies = [];
+        let streamingPlaylistsRedundancies = [];
+        for (const file of video.VideoFiles) {
+            for (const redundancy of file.RedundancyVideos) {
+                filesRedundancies.push({
+                    id: redundancy.id,
+                    fileUrl: redundancy.fileUrl,
+                    strategy: redundancy.strategy,
+                    createdAt: redundancy.createdAt,
+                    updatedAt: redundancy.updatedAt,
+                    expiresOn: redundancy.expiresOn,
+                    size: file.size
+                });
+            }
+        }
+        for (const playlist of video.VideoStreamingPlaylists) {
+            const size = playlist.VideoFiles.reduce((a, b) => a + b.size, 0);
+            for (const redundancy of playlist.RedundancyVideos) {
+                streamingPlaylistsRedundancies.push({
+                    id: redundancy.id,
+                    fileUrl: redundancy.fileUrl,
+                    strategy: redundancy.strategy,
+                    createdAt: redundancy.createdAt,
+                    updatedAt: redundancy.updatedAt,
+                    expiresOn: redundancy.expiresOn,
+                    size
+                });
+            }
+        }
+        return {
+            id: video.id,
+            name: video.name,
+            url: video.url,
+            uuid: video.uuid,
+            redundancies: {
+                files: filesRedundancies,
+                streamingPlaylists: streamingPlaylistsRedundancies
+            }
+        };
+    }
     getVideo() {
         if (this.VideoFile)
             return this.VideoFile.Video;
@@ -370,7 +504,7 @@ let VideoRedundancyModel = VideoRedundancyModel_1 = class VideoRedundancyModel e
                 id: this.url,
                 type: 'CacheFile',
                 object: this.VideoStreamingPlaylist.Video.url,
-                expires: this.expiresOn.toISOString(),
+                expires: this.expiresOn ? this.expiresOn.toISOString() : null,
                 url: {
                     type: 'Link',
                     mediaType: 'application/x-mpegURL',
@@ -382,7 +516,7 @@ let VideoRedundancyModel = VideoRedundancyModel_1 = class VideoRedundancyModel e
             id: this.url,
             type: 'CacheFile',
             object: this.VideoFile.Video.url,
-            expires: this.expiresOn.toISOString(),
+            expires: this.expiresOn ? this.expiresOn.toISOString() : null,
             url: {
                 type: 'Link',
                 mediaType: constants_1.MIMETYPES.VIDEO.EXT_MIMETYPE[this.VideoFile.extname],
@@ -445,7 +579,7 @@ __decorate([
     __metadata("design:type", Date)
 ], VideoRedundancyModel.prototype, "updatedAt", void 0);
 __decorate([
-    sequelize_typescript_1.AllowNull(false),
+    sequelize_typescript_1.AllowNull(true),
     sequelize_typescript_1.Column,
     __metadata("design:type", Date)
 ], VideoRedundancyModel.prototype, "expiresOn", void 0);

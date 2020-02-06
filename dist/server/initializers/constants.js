@@ -8,7 +8,7 @@ const lodash_1 = require("lodash");
 const video_playlist_privacy_model_1 = require("../../shared/models/videos/playlist/video-playlist-privacy.model");
 const video_playlist_type_model_1 = require("../../shared/models/videos/playlist/video-playlist-type.model");
 const config_1 = require("./config");
-const LAST_MIGRATION_VERSION = 470;
+const LAST_MIGRATION_VERSION = 475;
 exports.LAST_MIGRATION_VERSION = LAST_MIGRATION_VERSION;
 const API_VERSION = 'v1';
 exports.API_VERSION = API_VERSION;
@@ -58,7 +58,8 @@ const SORTABLE_COLUMNS = {
     USER_NOTIFICATIONS: ['createdAt'],
     VIDEO_PLAYLISTS: ['displayName', 'createdAt', 'updatedAt'],
     PLUGINS: ['name', 'createdAt', 'updatedAt'],
-    AVAILABLE_PLUGINS: ['npmName', 'popularity']
+    AVAILABLE_PLUGINS: ['npmName', 'popularity'],
+    VIDEO_REDUNDANCIES: ['name']
 };
 exports.SORTABLE_COLUMNS = SORTABLE_COLUMNS;
 const OAUTH_LIFETIME = {
@@ -106,11 +107,11 @@ const JOB_ATTEMPTS = {
     'activitypub-follow': 5,
     'video-file-import': 1,
     'video-transcoding': 1,
-    'video-file': 1,
     'video-import': 1,
     'email': 5,
     'videos-views': 1,
-    'activitypub-refresher': 1
+    'activitypub-refresher': 1,
+    'video-redundancy': 1
 };
 exports.JOB_ATTEMPTS = JOB_ATTEMPTS;
 const JOB_CONCURRENCY = {
@@ -120,11 +121,11 @@ const JOB_CONCURRENCY = {
     'activitypub-follow': 1,
     'video-file-import': 1,
     'video-transcoding': 1,
-    'video-file': 1,
     'video-import': 1,
     'email': 5,
     'videos-views': 1,
-    'activitypub-refresher': 1
+    'activitypub-refresher': 1,
+    'video-redundancy': 1
 };
 exports.JOB_CONCURRENCY = JOB_CONCURRENCY;
 const JOB_TTL = {
@@ -134,11 +135,11 @@ const JOB_TTL = {
     'activitypub-follow': 60000 * 10,
     'video-file-import': 1000 * 3600,
     'video-transcoding': 1000 * 3600 * 48,
-    'video-file': 1000 * 3600 * 48,
     'video-import': 1000 * 3600 * 2,
     'email': 60000 * 10,
     'videos-views': undefined,
-    'activitypub-refresher': 60000 * 10
+    'activitypub-refresher': 60000 * 10,
+    'video-redundancy': 1000 * 3600 * 3
 };
 exports.JOB_TTL = JOB_TTL;
 const REPEAT_JOBS = {

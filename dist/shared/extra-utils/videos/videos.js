@@ -494,8 +494,17 @@ function uploadVideoAndGetId(options) {
         const videoAttrs = { name: options.videoName };
         if (options.nsfw)
             videoAttrs.nsfw = options.nsfw;
+        if (options.privacy)
+            videoAttrs.privacy = options.privacy;
         const res = yield uploadVideo(options.server.url, options.token || options.server.accessToken, videoAttrs);
         return { id: res.body.video.id, uuid: res.body.video.uuid };
     });
 }
 exports.uploadVideoAndGetId = uploadVideoAndGetId;
+function getLocalIdByUUID(url, uuid) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const res = yield getVideo(url, uuid);
+        return res.body.id;
+    });
+}
+exports.getLocalIdByUUID = getLocalIdByUUID;

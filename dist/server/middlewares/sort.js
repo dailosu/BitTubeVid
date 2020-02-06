@@ -1,16 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-function setDefaultSort(req, res, next) {
-    if (!req.query.sort)
-        req.query.sort = '-createdAt';
-    return next();
-}
+const setDefaultSort = setDefaultSortFactory('-createdAt');
 exports.setDefaultSort = setDefaultSort;
-function setDefaultSearchSort(req, res, next) {
-    if (!req.query.sort)
-        req.query.sort = '-match';
-    return next();
-}
+const setDefaultVideoRedundanciesSort = setDefaultSortFactory('name');
+exports.setDefaultVideoRedundanciesSort = setDefaultVideoRedundanciesSort;
+const setDefaultSearchSort = setDefaultSortFactory('-match');
 exports.setDefaultSearchSort = setDefaultSearchSort;
 function setBlacklistSort(req, res, next) {
     let newSort = { sortModel: undefined, sortValue: '' };
@@ -28,3 +22,10 @@ function setBlacklistSort(req, res, next) {
     return next();
 }
 exports.setBlacklistSort = setBlacklistSort;
+function setDefaultSortFactory(sort) {
+    return (req, res, next) => {
+        if (!req.query.sort)
+            req.query.sort = sort;
+        return next();
+    };
+}

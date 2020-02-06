@@ -21,6 +21,7 @@ const stats_1 = require("../../../../shared/extra-utils/server/stats");
 const expect = chai.expect;
 let servers = [];
 let video1Server2UUID;
+let video1Server2Id;
 function checkMagnetWebseeds(file, baseWebseeds, server) {
     const parsed = magnetUtil.decode(file.magnetUri);
     for (const ws of baseWebseeds) {
@@ -31,6 +32,14 @@ function checkMagnetWebseeds(file, baseWebseeds, server) {
 }
 function flushAndRunServers(strategy, additionalParams = {}) {
     return __awaiter(this, void 0, void 0, function* () {
+        const strategies = [];
+        if (strategy !== null) {
+            strategies.push(extra_utils_1.immutableAssign({
+                min_lifetime: '1 hour',
+                strategy: strategy,
+                size: '400KB'
+            }, additionalParams));
+        }
         const config = {
             transcoding: {
                 hls: {
@@ -40,13 +49,7 @@ function flushAndRunServers(strategy, additionalParams = {}) {
             redundancy: {
                 videos: {
                     check_interval: '5 seconds',
-                    strategies: [
-                        extra_utils_1.immutableAssign({
-                            min_lifetime: '1 hour',
-                            strategy: strategy,
-                            size: '400KB'
-                        }, additionalParams)
-                    ]
+                    strategies
                 }
             }
         };
@@ -55,6 +58,7 @@ function flushAndRunServers(strategy, additionalParams = {}) {
         {
             const res = yield extra_utils_1.uploadVideo(servers[1].url, servers[1].accessToken, { name: 'video 1 server 2' });
             video1Server2UUID = res.body.video.uuid;
+            video1Server2Id = res.body.video.id;
             yield extra_utils_1.viewVideo(servers[1].url, video1Server2UUID);
         }
         yield jobs_1.waitJobs(servers);
@@ -166,14 +170,26 @@ function check1PlaylistRedundancies(videoUUID) {
         }
     });
 }
-function checkStatsWith2Webseed(strategy) {
+function checkStatsGlobal(strategy) {
     return __awaiter(this, void 0, void 0, function* () {
+        let totalSize = null;
+        let statsLength = 1;
+        if (strategy !== 'manual') {
+            totalSize = 409600;
+            statsLength = 2;
+        }
         const res = yield stats_1.getStats(servers[0].url);
         const data = res.body;
-        expect(data.videosRedundancy).to.have.lengthOf(1);
+        expect(data.videosRedundancy).to.have.lengthOf(statsLength);
         const stat = data.videosRedundancy[0];
         expect(stat.strategy).to.equal(strategy);
-        expect(stat.totalSize).to.equal(409600);
+        expect(stat.totalSize).to.equal(totalSize);
+        return stat;
+    });
+}
+function checkStatsWith2Webseed(strategy) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const stat = yield checkStatsGlobal(strategy);
         expect(stat.totalUsed).to.be.at.least(1).and.below(409601);
         expect(stat.totalVideoFiles).to.equal(4);
         expect(stat.totalVideos).to.equal(1);
@@ -181,12 +197,7 @@ function checkStatsWith2Webseed(strategy) {
 }
 function checkStatsWith1Webseed(strategy) {
     return __awaiter(this, void 0, void 0, function* () {
-        const res = yield stats_1.getStats(servers[0].url);
-        const data = res.body;
-        expect(data.videosRedundancy).to.have.lengthOf(1);
-        const stat = data.videosRedundancy[0];
-        expect(stat.strategy).to.equal(strategy);
-        expect(stat.totalSize).to.equal(409600);
+        const stat = yield checkStatsGlobal(strategy);
         expect(stat.totalUsed).to.equal(0);
         expect(stat.totalVideoFiles).to.equal(0);
         expect(stat.totalVideos).to.equal(0);
@@ -362,6 +373,69 @@ describe('Test videos redundancy', function () {
                 for (const server of servers) {
                     yield extra_utils_1.checkVideoFilesWereRemoved(video1Server2UUID, server.internalServerNumber);
                 }
+            });
+        });
+        after(function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.cleanupTests(servers);
+            });
+        });
+    });
+    describe('With manual strategy', function () {
+        before(function () {
+            this.timeout(120000);
+            return flushAndRunServers(null);
+        });
+        it('Should have 1 webseed on the first video', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield check1WebSeed();
+                yield check0PlaylistRedundancies();
+                yield checkStatsWith1Webseed('manual');
+            });
+        });
+        it('Should create a redundancy on first video', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield redundancy_1.addVideoRedundancy({
+                    url: servers[0].url,
+                    accessToken: servers[0].accessToken,
+                    videoId: video1Server2Id
+                });
+            });
+        });
+        it('Should have 2 webseeds on the first video', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                this.timeout(80000);
+                yield jobs_1.waitJobs(servers);
+                yield extra_utils_1.waitUntilLog(servers[0], 'Duplicated ', 5);
+                yield jobs_1.waitJobs(servers);
+                yield check2Webseeds();
+                yield check1PlaylistRedundancies();
+                yield checkStatsWith2Webseed('manual');
+            });
+        });
+        it('Should manually remove redundancies on server 1 and remove duplicated videos', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                this.timeout(80000);
+                const res = yield redundancy_1.listVideoRedundancies({
+                    url: servers[0].url,
+                    accessToken: servers[0].accessToken,
+                    target: 'remote-videos'
+                });
+                const videos = res.body.data;
+                expect(videos).to.have.lengthOf(1);
+                const video = videos[0];
+                for (const r of video.redundancies.files.concat(video.redundancies.streamingPlaylists)) {
+                    yield redundancy_1.removeVideoRedundancy({
+                        url: servers[0].url,
+                        accessToken: servers[0].accessToken,
+                        redundancyId: r.id
+                    });
+                }
+                yield jobs_1.waitJobs(servers);
+                yield extra_utils_1.wait(5000);
+                yield check1WebSeed();
+                yield check0PlaylistRedundancies();
+                yield extra_utils_1.checkVideoFilesWereRemoved(video1Server2UUID, servers[0].serverNumber, ['videos']);
             });
         });
         after(function () {

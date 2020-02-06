@@ -18,7 +18,7 @@ function cacheFileActivityObjectToDBAttributes(cacheFileObject, video, byActor) 
         if (!playlist)
             throw new Error('Cannot find HLS playlist of video ' + video.url);
         return {
-            expiresOn: new Date(cacheFileObject.expires),
+            expiresOn: cacheFileObject.expires ? new Date(cacheFileObject.expires) : null,
             url: cacheFileObject.id,
             fileUrl: url.href,
             strategy: null,
@@ -33,7 +33,7 @@ function cacheFileActivityObjectToDBAttributes(cacheFileObject, video, byActor) 
     if (!videoFile)
         throw new Error(`Cannot find video file ${url.height} ${url.fps} of video ${video.url}`);
     return {
-        expiresOn: new Date(cacheFileObject.expires),
+        expiresOn: cacheFileObject.expires ? new Date(cacheFileObject.expires) : null,
         url: cacheFileObject.id,
         fileUrl: url.href,
         strategy: null,

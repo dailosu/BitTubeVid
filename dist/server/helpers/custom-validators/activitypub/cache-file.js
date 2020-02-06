@@ -6,7 +6,7 @@ const misc_2 = require("../misc");
 function isCacheFileObjectValid(object) {
     return misc_2.exists(object) &&
         object.type === 'CacheFile' &&
-        misc_2.isDateValid(object.expires) &&
+        (object.expires === null || misc_2.isDateValid(object.expires)) &&
         misc_1.isActivityPubUrlValid(object.object) &&
         (videos_1.isRemoteVideoUrlValid(object.url) || isPlaylistRedundancyUrlValid(object.url));
 }

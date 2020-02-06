@@ -30,7 +30,13 @@ function getStats(req, res) {
         const { totalUsers } = yield user_1.UserModel.getStats();
         const { totalInstanceFollowers, totalInstanceFollowing } = yield actor_follow_1.ActorFollowModel.getStats();
         const { totalLocalVideoFilesSize } = yield video_file_1.VideoFileModel.getStats();
-        const videosRedundancyStats = yield Promise.all(config_1.CONFIG.REDUNDANCY.VIDEOS.STRATEGIES.map(r => {
+        const strategies = config_1.CONFIG.REDUNDANCY.VIDEOS.STRATEGIES
+            .map(r => ({
+            strategy: r.strategy,
+            size: r.size
+        }));
+        strategies.push({ strategy: 'manual', size: null });
+        const videosRedundancyStats = yield Promise.all(strategies.map(r => {
             return video_redundancy_1.VideoRedundancyModel.getStats(r.strategy)
                 .then(stats => Object.assign(stats, { strategy: r.strategy, totalSize: r.size }));
         }));

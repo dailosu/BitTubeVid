@@ -169,6 +169,66 @@ describe('Test CLI wrapper', function () {
             });
         });
     });
+    describe('Manage video redundancies', function () {
+        let anotherServer;
+        let video1Server2;
+        let servers;
+        before(function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                this.timeout(120000);
+                anotherServer = yield extra_utils_1.flushAndRunServer(2);
+                yield extra_utils_1.setAccessTokensToServers([anotherServer]);
+                yield extra_utils_1.doubleFollow(server, anotherServer);
+                servers = [server, anotherServer];
+                yield extra_utils_1.waitJobs(servers);
+                const uuid = (yield extra_utils_1.uploadVideoAndGetId({ server: anotherServer, videoName: 'super video' })).uuid;
+                yield extra_utils_1.waitJobs(servers);
+                video1Server2 = yield extra_utils_1.getLocalIdByUUID(server.url, uuid);
+            });
+        });
+        it('Should add a redundancy', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                this.timeout(60000);
+                const env = extra_utils_1.getEnvCli(server);
+                const params = `add --video ${video1Server2}`;
+                yield extra_utils_1.execCLI(`${env} ${cmd} redundancy ${params}`);
+                yield extra_utils_1.waitJobs(servers);
+            });
+        });
+        it('Should list redundancies', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                this.timeout(60000);
+                {
+                    const env = extra_utils_1.getEnvCli(server);
+                    const params = `list-my-redundancies`;
+                    const stdout = yield extra_utils_1.execCLI(`${env} ${cmd} redundancy ${params}`);
+                    chai_1.expect(stdout).to.contain('super video');
+                    chai_1.expect(stdout).to.contain(`localhost:${server.port}`);
+                }
+            });
+        });
+        it('Should remove a redundancy', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                this.timeout(60000);
+                const env = extra_utils_1.getEnvCli(server);
+                const params = `remove --video ${video1Server2}`;
+                yield extra_utils_1.execCLI(`${env} ${cmd} redundancy ${params}`);
+                yield extra_utils_1.waitJobs(servers);
+                {
+                    const env = extra_utils_1.getEnvCli(server);
+                    const params = `list-my-redundancies`;
+                    const stdout = yield extra_utils_1.execCLI(`${env} ${cmd} redundancy ${params}`);
+                    chai_1.expect(stdout).to.not.contain('super video');
+                }
+            });
+        });
+        after(function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                this.timeout(10000);
+                yield extra_utils_1.cleanupTests([anotherServer]);
+            });
+        });
+    });
     after(function () {
         return __awaiter(this, void 0, void 0, function* () {
             this.timeout(10000);

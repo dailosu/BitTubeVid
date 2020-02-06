@@ -23,6 +23,7 @@ const video_import_1 = require("./handlers/video-import");
 const video_views_1 = require("./handlers/video-views");
 const activitypub_refresher_1 = require("./handlers/activitypub-refresher");
 const video_file_import_1 = require("./handlers/video-file-import");
+const video_redundancy_1 = require("@server/lib/job-queue/handlers/video-redundancy");
 const handlers = {
     'activitypub-http-broadcast': activitypub_http_broadcast_1.processActivityPubHttpBroadcast,
     'activitypub-http-unicast': activitypub_http_unicast_1.processActivityPubHttpUnicast,
@@ -30,11 +31,11 @@ const handlers = {
     'activitypub-follow': activitypub_follow_1.processActivityPubFollow,
     'video-file-import': video_file_import_1.processVideoFileImport,
     'video-transcoding': video_transcoding_1.processVideoTranscoding,
-    'video-file': video_transcoding_1.processVideoTranscoding,
     'email': email_1.processEmail,
     'video-import': video_import_1.processVideoImport,
     'videos-views': video_views_1.processVideosViews,
-    'activitypub-refresher': activitypub_refresher_1.refreshAPObject
+    'activitypub-refresher': activitypub_refresher_1.refreshAPObject,
+    'video-redundancy': video_redundancy_1.processVideoRedundancy
 };
 const jobTypes = [
     'activitypub-follow',
@@ -46,7 +47,8 @@ const jobTypes = [
     'video-file-import',
     'video-import',
     'videos-views',
-    'activitypub-refresher'
+    'activitypub-refresher',
+    'video-redundancy'
 ];
 exports.jobTypes = jobTypes;
 class JobQueue {

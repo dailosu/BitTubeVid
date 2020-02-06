@@ -24,6 +24,7 @@ const activitypub_1 = require("../activitypub");
 const hls_1 = require("../hls");
 const config_1 = require("../../initializers/config");
 const video_paths_1 = require("../video-paths");
+const video_1 = require("@server/models/video/video");
 function isMVideoRedundancyFileVideo(o) {
     return !!o.VideoFile;
 }
@@ -31,6 +32,21 @@ class VideosRedundancyScheduler extends abstract_scheduler_1.AbstractScheduler {
     constructor() {
         super();
         this.schedulerIntervalMs = config_1.CONFIG.REDUNDANCY.VIDEOS.CHECK_INTERVAL;
+    }
+    createManualRedundancy(videoId) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const videoToDuplicate = yield video_1.VideoModel.loadWithFiles(videoId);
+            if (!videoToDuplicate) {
+                logger_1.logger.warn('Video to manually duplicate %d does not exist anymore.', videoId);
+                return;
+            }
+            return this.createVideoRedundancies({
+                video: videoToDuplicate,
+                redundancy: null,
+                files: videoToDuplicate.VideoFiles,
+                streamingPlaylists: videoToDuplicate.VideoStreamingPlaylists
+            });
+        });
     }
     internalExecute() {
         return __awaiter(this, void 0, void 0, function* () {
@@ -153,20 +169,26 @@ class VideosRedundancyScheduler extends abstract_scheduler_1.AbstractScheduler {
     }
     createVideoFileRedundancy(redundancy, video, fileArg) {
         return __awaiter(this, void 0, void 0, function* () {
+            let strategy = 'manual';
+            let expiresOn = null;
+            if (redundancy) {
+                strategy = redundancy.strategy;
+                expiresOn = this.buildNewExpiration(redundancy.minLifetime);
+            }
             const file = fileArg;
             file.Video = video;
             const serverActor = yield utils_1.getServerActor();
-            logger_1.logger.info('Duplicating %s - %d in videos redundancy with "%s" strategy.', video.url, file.resolution, redundancy.strategy);
+            logger_1.logger.info('Duplicating %s - %d in videos redundancy with "%s" strategy.', video.url, file.resolution, strategy);
             const { baseUrlHttp, baseUrlWs } = video.getBaseUrls();
             const magnetUri = webtorrent_1.generateMagnetUri(video, file, baseUrlHttp, baseUrlWs);
             const tmpPath = yield webtorrent_1.downloadWebTorrentVideo({ magnetUri }, constants_1.VIDEO_IMPORT_TIMEOUT);
             const destPath = path_1.join(config_1.CONFIG.STORAGE.REDUNDANCY_DIR, video_paths_1.getVideoFilename(video, file));
             yield fs_extra_1.move(tmpPath, destPath, { overwrite: true });
             const createdModel = yield video_redundancy_1.VideoRedundancyModel.create({
-                expiresOn: this.buildNewExpiration(redundancy.minLifetime),
+                expiresOn,
                 url: url_1.getVideoCacheFileActivityPubUrl(file),
                 fileUrl: video.getVideoRedundancyUrl(file, constants_1.WEBSERVER.URL),
-                strategy: redundancy.strategy,
+                strategy,
                 videoFileId: file.id,
                 actorId: serverActor.id
             });
@@ -177,17 +199,23 @@ class VideosRedundancyScheduler extends abstract_scheduler_1.AbstractScheduler {
     }
     createStreamingPlaylistRedundancy(redundancy, video, playlistArg) {
         return __awaiter(this, void 0, void 0, function* () {
+            let strategy = 'manual';
+            let expiresOn = null;
+            if (redundancy) {
+                strategy = redundancy.strategy;
+                expiresOn = this.buildNewExpiration(redundancy.minLifetime);
+            }
             const playlist = playlistArg;
             playlist.Video = video;
             const serverActor = yield utils_1.getServerActor();
-            logger_1.logger.info('Duplicating %s streaming playlist in videos redundancy with "%s" strategy.', video.url, redundancy.strategy);
+            logger_1.logger.info('Duplicating %s streaming playlist in videos redundancy with "%s" strategy.', video.url, strategy);
             const destDirectory = path_1.join(constants_1.HLS_REDUNDANCY_DIRECTORY, video.uuid);
             yield hls_1.downloadPlaylistSegments(playlist.playlistUrl, destDirectory, constants_1.VIDEO_IMPORT_TIMEOUT);
             const createdModel = yield video_redundancy_1.VideoRedundancyModel.create({
-                expiresOn: this.buildNewExpiration(redundancy.minLifetime),
+                expiresOn,
                 url: url_1.getVideoCacheStreamingPlaylistActivityPubUrl(video, playlist),
                 fileUrl: playlist.getVideoRedundancyUrl(constants_1.WEBSERVER.URL),
-                strategy: redundancy.strategy,
+                strategy,
                 videoStreamingPlaylistId: playlist.id,
                 actorId: serverActor.id
             });

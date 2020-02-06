@@ -21,12 +21,12 @@ function removeVideoRedundancy(videoRedundancy, t) {
     });
 }
 exports.removeVideoRedundancy = removeVideoRedundancy;
-function removeRedundancyOf(serverId) {
+function removeRedundanciesOfServer(serverId) {
     return __awaiter(this, void 0, void 0, function* () {
-        const videosRedundancy = yield video_redundancy_1.VideoRedundancyModel.listLocalOfServer(serverId);
-        for (const redundancy of videosRedundancy) {
+        const redundancies = yield video_redundancy_1.VideoRedundancyModel.listLocalOfServer(serverId);
+        for (const redundancy of redundancies) {
             yield removeVideoRedundancy(redundancy);
         }
     });
 }
-exports.removeRedundancyOf = removeRedundancyOf;
+exports.removeRedundanciesOfServer = removeRedundanciesOfServer;

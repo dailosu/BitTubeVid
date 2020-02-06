@@ -23,4 +23,5 @@ var UserRight;
     UserRight[UserRight["SEE_ALL_VIDEOS"] = 18] = "SEE_ALL_VIDEOS";
     UserRight[UserRight["CHANGE_VIDEO_OWNERSHIP"] = 19] = "CHANGE_VIDEO_OWNERSHIP";
     UserRight[UserRight["MANAGE_PLUGINS"] = 20] = "MANAGE_PLUGINS";
+    UserRight[UserRight["MANAGE_VIDEOS_REDUNDANCIES"] = 21] = "MANAGE_VIDEOS_REDUNDANCIES";
 })(UserRight = exports.UserRight || (exports.UserRight = {}));

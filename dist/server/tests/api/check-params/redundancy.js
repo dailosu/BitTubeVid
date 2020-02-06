@@ -14,6 +14,8 @@ const extra_utils_1 = require("../../../../shared/extra-utils");
 describe('Test server redundancy API validators', function () {
     let servers;
     let userAccessToken = null;
+    let videoIdLocal;
+    let videoIdRemote;
     before(function () {
         return __awaiter(this, void 0, void 0, function* () {
             this.timeout(30000);
@@ -26,9 +28,141 @@ describe('Test server redundancy API validators', function () {
             };
             yield extra_utils_1.createUser({ url: servers[0].url, accessToken: servers[0].accessToken, username: user.username, password: user.password });
             userAccessToken = yield extra_utils_1.userLogin(servers[0], user);
+            videoIdLocal = (yield extra_utils_1.uploadVideoAndGetId({ server: servers[0], videoName: 'video' })).id;
+            videoIdRemote = (yield extra_utils_1.uploadVideoAndGetId({ server: servers[1], videoName: 'video' })).id;
+            yield extra_utils_1.waitJobs(servers);
         });
     });
-    describe('When updating redundancy', function () {
+    describe('When listing redundancies', function () {
+        const path = '/api/v1/server/redundancy/videos';
+        let url;
+        let token;
+        before(function () {
+            url = servers[0].url;
+            token = servers[0].accessToken;
+        });
+        it('Should fail with an invalid token', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makeGetRequest({ url, path, token: 'fake_token', statusCodeExpected: 401 });
+            });
+        });
+        it('Should fail if the user is not an administrator', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makeGetRequest({ url, path, token: userAccessToken, statusCodeExpected: 403 });
+            });
+        });
+        it('Should fail with a bad start pagination', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.checkBadStartPagination(url, path, servers[0].accessToken);
+            });
+        });
+        it('Should fail with a bad count pagination', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.checkBadCountPagination(url, path, servers[0].accessToken);
+            });
+        });
+        it('Should fail with an incorrect sort', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.checkBadSortPagination(url, path, servers[0].accessToken);
+            });
+        });
+        it('Should fail with a bad target', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makeGetRequest({ url, path, token, query: { target: 'bad target' } });
+            });
+        });
+        it('Should fail without target', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makeGetRequest({ url, path, token });
+            });
+        });
+        it('Should succeed with the correct params', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makeGetRequest({ url, path, token, query: { target: 'my-videos' }, statusCodeExpected: 200 });
+            });
+        });
+    });
+    describe('When manually adding a redundancy', function () {
+        const path = '/api/v1/server/redundancy/videos';
+        let url;
+        let token;
+        before(function () {
+            url = servers[0].url;
+            token = servers[0].accessToken;
+        });
+        it('Should fail with an invalid token', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makePostBodyRequest({ url, path, token: 'fake_token', statusCodeExpected: 401 });
+            });
+        });
+        it('Should fail if the user is not an administrator', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makePostBodyRequest({ url, path, token: userAccessToken, statusCodeExpected: 403 });
+            });
+        });
+        it('Should fail without a video id', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makePostBodyRequest({ url, path, token });
+            });
+        });
+        it('Should fail with an incorrect video id', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makePostBodyRequest({ url, path, token, fields: { videoId: 'peertube' } });
+            });
+        });
+        it('Should fail with a not found video id', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makePostBodyRequest({ url, path, token, fields: { videoId: 6565 }, statusCodeExpected: 404 });
+            });
+        });
+        it('Should fail with a local a video id', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makePostBodyRequest({ url, path, token, fields: { videoId: videoIdLocal } });
+            });
+        });
+        it('Should succeed with the correct params', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makePostBodyRequest({ url, path, token, fields: { videoId: videoIdRemote }, statusCodeExpected: 204 });
+            });
+        });
+        it('Should fail if the video is already duplicated', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                this.timeout(30000);
+                yield extra_utils_1.waitJobs(servers);
+                yield extra_utils_1.makePostBodyRequest({ url, path, token, fields: { videoId: videoIdRemote }, statusCodeExpected: 409 });
+            });
+        });
+    });
+    describe('When manually removing a redundancy', function () {
+        const path = '/api/v1/server/redundancy/videos/';
+        let url;
+        let token;
+        before(function () {
+            url = servers[0].url;
+            token = servers[0].accessToken;
+        });
+        it('Should fail with an invalid token', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makeDeleteRequest({ url, path: path + '1', token: 'fake_token', statusCodeExpected: 401 });
+            });
+        });
+        it('Should fail if the user is not an administrator', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makeDeleteRequest({ url, path: path + '1', token: userAccessToken, statusCodeExpected: 403 });
+            });
+        });
+        it('Should fail with an incorrect video id', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makeDeleteRequest({ url, path: path + 'toto', token });
+            });
+        });
+        it('Should fail with a not found video redundancy', function () {
+            return __awaiter(this, void 0, void 0, function* () {
+                yield extra_utils_1.makeDeleteRequest({ url, path: path + '454545', token, statusCodeExpected: 404 });
+            });
+        });
+    });
+    describe('When updating server redundancy', function () {
         const path = '/api/v1/server/redundancy';
         it('Should fail with an invalid token', function () {
             return __awaiter(this, void 0, void 0, function* () {

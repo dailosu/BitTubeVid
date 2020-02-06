@@ -86,7 +86,7 @@ function removeFollowing(req, res) {
             const server = follow.ActorFollowing.Server;
             server.redundancyAllowed = false;
             yield server.save({ transaction: t });
-            redundancy_1.removeRedundancyOf(server.id)
+            redundancy_1.removeRedundanciesOfServer(server.id)
                 .catch(err => logger_1.logger.error('Cannot remove redundancy of %s.', server.host, err));
             yield follow.destroy({ transaction: t });
         }));
