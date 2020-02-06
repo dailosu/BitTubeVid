@@ -1,14 +1,19 @@
 import * as Bluebird from 'bluebird'
+import fetch from 'node-fetch'
 import { AccessDeniedError } from 'oauth2-server'
+import { createUserAccountAndChannelAndPlaylist } from '../lib/user'
 import { logger } from '../helpers/logger'
+import { ActorModel } from '../models/activitypub/actor'
 import { UserModel } from '../models/account/user'
 import { OAuthClientModel } from '../models/oauth/oauth-client'
 import { OAuthTokenModel } from '../models/oauth/oauth-token'
-import { LRU_CACHE } from '../initializers/constants'
+import { CONSTRAINTS_FIELDS, LRU_CACHE, PEERTUBE_VERSION, WEBSERVER } from '../initializers/constants'
 import { Transaction } from 'sequelize'
 import { CONFIG } from '../initializers/config'
 import * as LRUCache from 'lru-cache'
 import { MOAuthTokenUser } from '@server/typings/models/oauth/oauth-token'
+import { MUserDefault } from '@server/typings/models'
+import { UserRole } from '../../shared'
 
 type TokenInfo = { accessToken: string, refreshToken: string, accessTokenExpiresAt: Date, refreshTokenExpiresAt: Date }
 
@@ -71,14 +76,98 @@ function getRefreshToken (refreshToken: string) {
   return OAuthTokenModel.getByRefreshTokenAndPopulateClient(refreshToken)
 }
 
+const USERS_CONSTRAINTS_FIELDS = CONSTRAINTS_FIELDS.USERS
+
+async function generateUntakenUsername (username: string, email: string) {
+  const newUsernameFromEmail = `${(email || '').split("@")[0].toLowerCase().replace(/[^a-z0-9._]/g, '').trim()}`
+  let newUsernameFromName = `${(username || newUsernameFromEmail).toLowerCase().replace(/[^a-z0-9._]/g, '').trim()}`
+
+  // Commented code so it always uses new username from email.
+  // if (newUsernameFromName.length > (USERS_CONSTRAINTS_FIELDS.USERNAME.max - USERS_CONSTRAINTS_FIELDS.USERNAME.min)) {
+    newUsernameFromName = newUsernameFromEmail // Use username generated from email if username generated from name exceeds a reasonable length
+  // }
+
+  let testUser = {} as any;
+  do {
+    if (newUsernameFromName.length >= USERS_CONSTRAINTS_FIELDS.USERNAME.min) {
+      testUser = await UserModel.loadByUsername(newUsernameFromName) // Check for username conflicts with other users
+      if (!testUser) { testUser = await ActorModel.loadLocalByName(newUsernameFromName) } // Check for username conflicts with other actors
+      if (!testUser) { break }
+    }
+    newUsernameFromName = newUsernameFromName + `${Math.floor(Math.random() * 10)}`
+  } while (testUser)
+
+  return newUsernameFromName
+}
+
+async function getUserFirebase (usernameOrEmail: string, password: string, user?: MUserDefault) {
+  if (usernameOrEmail.indexOf('@') === -1) {
+    return null // Firebase only allows email login. Above is a quick check
+  }
+  const userResult = await fetch('https://us-central1-bittube-airtime-extension.cloudfunctions.net/verifyPassword', {
+    headers: {
+      'User-Agent': `PeerTube/${PEERTUBE_VERSION} (+${WEBSERVER.URL})`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ email: usernameOrEmail, password }),
+    method: 'POST'
+  }).then(response => response.json())
+
+  if (userResult.success && userResult.user && userResult.decodedIdToken) {
+    const email = userResult.user.email
+    const firebaseInfo = userResult.decodedIdToken.firebase
+
+    if (firebaseInfo && firebaseInfo.identities && firebaseInfo.sign_in_provider) {
+      if (['google.com', 'facebook.com', 'twitter.com'].indexOf(firebaseInfo.sign_in_provider) !== -1) {
+        if (firebaseInfo.identities[firebaseInfo.sign_in_provider] && firebaseInfo.identities[firebaseInfo.sign_in_provider].length) {
+          userResult.user.emailVerified = true
+        }
+      }
+    }
+    const emailVerified = userResult.user.emailVerified || false
+    const userDisplayName = userResult.user.displayName || undefined
+
+    if (!user) {
+      const userData = {
+        username: await generateUntakenUsername(userDisplayName, email),
+        email,
+        password,
+        role: UserRole.USER,
+        emailVerified: CONFIG.SIGNUP.REQUIRES_EMAIL_VERIFICATION ? emailVerified : null,
+        nsfwPolicy: CONFIG.INSTANCE.DEFAULT_NSFW_POLICY,
+        videoQuota: CONFIG.USER.VIDEO_QUOTA,
+        videoQuotaDaily: CONFIG.USER.VIDEO_QUOTA_DAILY
+      }
+
+      const userToCreate = new UserModel(userData)
+      const userCreationResult = await createUserAccountAndChannelAndPlaylist({
+        userToCreate,
+        userDisplayName
+      })
+
+      user = userCreationResult.user
+    }
+
+    if (user.blocked) throw new AccessDeniedError('User is blocked.')
+
+    if (CONFIG.SIGNUP.REQUIRES_EMAIL_VERIFICATION && user.emailVerified === false) {
+      throw new AccessDeniedError('User email is not verified.')
+    }
+
+    return user
+  }
+  return null
+}
+
 async function getUser (usernameOrEmail: string, password: string) {
   logger.debug('Getting User (username/email: ' + usernameOrEmail + ', password: ******).')
 
   const user = await UserModel.loadByUsernameOrEmail(usernameOrEmail)
-  if (!user) return null
+  if (!user) return getUserFirebase(usernameOrEmail, password, null)
 
   const passwordMatch = await user.isPasswordMatch(password)
-  if (passwordMatch === false) return null
+  if (passwordMatch === false) return getUserFirebase(usernameOrEmail, password, user)
 
   if (user.blocked) throw new AccessDeniedError('User is blocked.')
 
