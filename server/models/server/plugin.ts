@@ -124,7 +124,7 @@ export class PluginModel extends Model<PluginModel> {
     return PluginModel.findOne(query)
       .then(p => {
         if (!p || !p.settings) return undefined
-
+        console.warn("ICEICE returning setting ", settingName, "  with data: ", p.settings[settingName]);
         return p.settings[settingName]
       })
   }
@@ -249,7 +249,7 @@ export class PluginModel extends Model<PluginModel> {
 
       result[r.name] = settings[r.name] || r.default || null
     }
-
+    console.log("ICEICE going to return settings: ", result);
     return result
   }
 

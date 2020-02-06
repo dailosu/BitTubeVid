@@ -30,7 +30,7 @@ yarn-error.log
 /*.sublime-project
 /*.sublime-workspace
 /**/.idea
-/dist
+#/dist
 /PeerTube.iml
 
 # Zanata
