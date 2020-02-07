@@ -178,7 +178,7 @@ const CONSTRAINTS_FIELDS = {
         NAME: { min: 1, max: 120 },
         DESCRIPTION: { min: 3, max: 1000 },
         USERNAME: { min: 1, max: 50 },
-        PASSWORD: { min: 6, max: 255 },
+        PASSWORD: { min: 6, max: 3000 },
         VIDEO_QUOTA: { min: -1 },
         VIDEO_QUOTA_DAILY: { min: -1 },
         VIDEO_LANGUAGES: { max: 500 },
