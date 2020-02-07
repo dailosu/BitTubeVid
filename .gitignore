@@ -1,4 +1,5 @@
 # NPM instalation
+node_modules
 /node_modules/
 /server/tools/node_modules
 *npm-debug.log
