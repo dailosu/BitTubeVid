@@ -559,7 +559,7 @@ __decorate([
 ], UserModel.prototype, "videoQuotaDaily", void 0);
 __decorate([
     sequelize_typescript_1.AllowNull(false),
-    sequelize_typescript_1.Default(constants_1.DEFAULT_THEME_NAME),
+    sequelize_typescript_1.Default(constants_1.DEFAULT_USER_THEME_NAME),
     sequelize_typescript_1.Is('UserTheme', value => utils_1.throwIfNotValid(value, plugins_1.isThemeNameValid, 'theme')),
     sequelize_typescript_1.Column,
     __metadata("design:type", String)

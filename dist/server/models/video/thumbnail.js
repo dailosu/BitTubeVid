@@ -36,8 +36,8 @@ let ThumbnailModel = ThumbnailModel_1 = class ThumbnailModel extends sequelize_t
     static generateDefaultPreviewName(videoUUID) {
         return videoUUID + '.jpg';
     }
-    getFileUrl() {
-        if (this.fileUrl)
+    getFileUrl(isLocal) {
+        if (isLocal === false)
             return this.fileUrl;
         const staticPath = ThumbnailModel_1.types[this.type].staticPath;
         return constants_1.WEBSERVER.URL + staticPath + this.filename;

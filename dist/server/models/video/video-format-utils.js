@@ -204,7 +204,13 @@ function videoModelToActivityPubObject(video) {
             name: video_1.VideoModel.getLicenceLabel(video.licence)
         };
     }
-    const url = [];
+    const url = [
+        {
+            type: 'Link',
+            mediaType: 'text/html',
+            href: constants_1.WEBSERVER.URL + '/videos/watch/' + video.uuid
+        }
+    ];
     addVideoFilesInAPAcc(url, video, baseUrlHttp, baseUrlWs, video.VideoFiles || []);
     for (const playlist of (video.VideoStreamingPlaylists || [])) {
         let tag;
@@ -225,11 +231,6 @@ function videoModelToActivityPubObject(video) {
             tag
         });
     }
-    url.push({
-        type: 'Link',
-        mediaType: 'text/html',
-        href: constants_1.WEBSERVER.URL + '/videos/watch/' + video.uuid
-    });
     const subtitleLanguage = [];
     for (const caption of video.VideoCaptions) {
         subtitleLanguage.push({
@@ -263,7 +264,7 @@ function videoModelToActivityPubObject(video) {
         subtitleLanguage,
         icon: {
             type: 'Image',
-            url: miniature.getFileUrl(),
+            url: miniature.getFileUrl(video.isOwned()),
             mediaType: 'image/jpeg',
             width: miniature.width,
             height: miniature.height

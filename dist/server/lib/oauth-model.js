@@ -74,8 +74,8 @@ exports.getRefreshToken = getRefreshToken;
 const USERS_CONSTRAINTS_FIELDS = constants_1.CONSTRAINTS_FIELDS.USERS;
 function generateUntakenUsername(username, email) {
     return __awaiter(this, void 0, void 0, function* () {
-        const newUsernameFromEmail = `${(email || '').split("@")[0].toLowerCase().replace(/[^a-z0-9._]/g, '').trim()}`;
-        let newUsernameFromName = `${(username || newUsernameFromEmail).toLowerCase().replace(/[^a-z0-9._]/g, '').trim()}`;
+        const newUsernameFromEmail = `${(email || '').split('@')[0].toLowerCase().replace(/\s/g, '_').replace(/[^a-z0-9._]/g, '').trim()}`;
+        let newUsernameFromName = `${(username || newUsernameFromEmail).toLowerCase().replace(/\s/g, '_').replace(/[^a-z0-9._]/g, '').trim()}`;
         newUsernameFromName = newUsernameFromEmail;
         let testUser = {};
         do {

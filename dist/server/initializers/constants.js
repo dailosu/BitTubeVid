@@ -390,6 +390,9 @@ const MIMETYPES = {
             'audio/mp3': '.mp3',
             'application/ogg': '.ogg',
             'audio/ogg': '.ogg',
+            'audio/x-ms-wma': '.wma',
+            'audio/wav': '.wav',
+            'audio/x-flac': '.flac',
             'audio/flac': '.flac'
         },
         EXT_MIMETYPE: null
@@ -660,9 +663,9 @@ function buildVideoMimetypeExt() {
                 'video/x-msvideo': '.avi',
                 'video/x-flv': '.flv',
                 'video/x-matroska': '.mkv',
-                'application/octet-stream': '.mkv',
                 'video/avi': '.avi',
                 'video/x-m4v': '.m4v',
+                'application/octet-stream': null,
                 'video/m4v': '.m4v'
             });
         }
