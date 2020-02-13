@@ -29,7 +29,7 @@ function listAvailablePluginsFromIndex(options) {
         const uri = config_1.CONFIG.PLUGINS.INDEX.URL + '/api/v1/plugins';
         try {
             const { body } = yield requests_1.doRequest({ uri, qs, json: true });
-            logger_1.logger.debug('Got result from PeerTube index.', { body });
+            logger_1.logger.debug('Got result from BitTube index.', { body });
             yield addInstanceInformation(body);
             return body;
         }

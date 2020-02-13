@@ -29,7 +29,7 @@ function checkActivityPubUrls() {
         if (constants_1.WEBSERVER.HOST !== parsed.host) {
             const NODE_ENV = config.util.getEnv('NODE_ENV');
             const NODE_CONFIG_DIR = config.util.getEnv('NODE_CONFIG_DIR');
-            logger_1.logger.warn('It seems PeerTube was started (and created some data) with another domain name. ' +
+            logger_1.logger.warn('It seems BitTube was started (and created some data) with another domain name. ' +
                 'This means you will not be able to federate! ' +
                 'Please use %s %s npm run update-host to fix this.', NODE_CONFIG_DIR ? `NODE_CONFIG_DIR=${NODE_CONFIG_DIR}` : '', NODE_ENV ? `NODE_ENV=${NODE_ENV}` : '');
         }
@@ -82,7 +82,7 @@ function checkConfig() {
         const configStorage = config.get('storage');
         for (const key of Object.keys(configStorage)) {
             if (configStorage[key].startsWith('storage/')) {
-                logger_1.logger.warn('Directory of %s should not be in the production directory of PeerTube. Please check your production configuration file.', key);
+                logger_1.logger.warn('Directory of %s should not be in the production directory of BitTube. Please check your production configuration file.', key);
             }
         }
     }
