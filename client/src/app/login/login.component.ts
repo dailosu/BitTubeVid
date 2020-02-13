@@ -9,7 +9,7 @@ import { LoginValidatorsService } from '@app/shared/forms/form-validators/login-
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap'
 import { ActivatedRoute } from '@angular/router'
 import { ServerConfig } from '@shared/models/server/server-config.model'
-import { firebaseApp, firebaseClass, getFirebaseToken } from '../core/firebase'
+import { firebaseAuth, firebaseClass, getFirebaseToken } from '../core/firebase'
 
 @Component({
   selector: 'my-login',
@@ -78,7 +78,7 @@ export class LoginComponent extends FormReactive implements OnInit {
       default:
     }
 
-    firebaseApp.auth().signInWithPopup(authProvider).then(
+    firebaseAuth.signInWithPopup(authProvider).then(
       async (result) => {
         const username = result.user.email
         const password = await getFirebaseToken()
@@ -105,7 +105,13 @@ export class LoginComponent extends FormReactive implements OnInit {
 
     this.authService.login(username, password)
       .subscribe(
-        () => this.redirectService.redirectToPreviousRoute(),
+        () => {
+          if (username.indexOf('@') !== -1) {
+            firebaseAuth.signInWithEmailAndPassword(username, password).catch(error => console.error(error))
+          }
+
+          return this.redirectService.redirectToPreviousRoute()
+        },
 
         err => {
           if (err.message.indexOf('credentials are invalid') !== -1) this.error = this.i18n('Incorrect username or password.')
